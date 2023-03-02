@@ -33,7 +33,7 @@ def initializeWeChat(request):
     signature = request.GET.get("signature", default="")
     timestamp = request.GET.get("timestamp", default="")
     nonce = request.GET.get("nonce", default="")
-
+    print(signature,timestamp,nonce)
     # 校验参数
     # 校验流程：
     # 将token、timestamp、nonce三个参数进行字典序排序
