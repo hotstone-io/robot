@@ -25,6 +25,7 @@ def initializeWeChat(request):
     # nonce: 随机数
     # echostr: 随机字符串
     """
+    print(request)
 
     return_response = {"code": -1, "items": []}
 
