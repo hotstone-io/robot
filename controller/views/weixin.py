@@ -111,7 +111,7 @@ def initializeWeChat(request):
                         "FromUserName": xml_dict.get("ToUserName"),
                         "CreateTime": int(time.time()),
                         "MsgType": "text",
-                        "Content": completion
+                        "Content": completion["choices"][0]["message"]["content"].strip()
                     }
                 }
             else:
@@ -121,7 +121,7 @@ def initializeWeChat(request):
                         "FromUserName": xml_dict.get("ToUserName"),
                         "CreateTime": int(time.time()),
                         "MsgType": "text",
-                        "Content": "无法失败"
+                        "Content": "无效的内容"
                     }
                 }
             # 将字典转换为xml字符串
