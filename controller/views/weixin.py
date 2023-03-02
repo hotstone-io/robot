@@ -4,10 +4,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core import serializers
 from django.db.models import F
 from django.urls import reverse
-from aliyunsdkcore.acs_exception.exceptions import ServerException
 from django.core.exceptions import ObjectDoesNotExist
 from HotstoneRobot import settings
-from aliyunsdkcore.acs_exception.exceptions import ClientException
 import re
 import datetime
 import json
