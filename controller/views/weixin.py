@@ -13,6 +13,9 @@ import requests
 import uuid
 import time
 import xmltodict
+import openai
+
+openai.api_key = settings.OPENAI_KEY
 
 # EIP
 @csrf_exempt
@@ -25,15 +28,12 @@ def initializeWeChat(request):
     # nonce: 随机数
     # echostr: 随机字符串
     """
-    print(request)
-
     return_response = {"code": -1, "items": []}
 
     # 接收微信服务器发送参数
     signature = request.GET.get("signature", default="")
     timestamp = request.GET.get("timestamp", default="")
     nonce = request.GET.get("nonce", default="")
-    print(signature,timestamp,nonce,settings.WECHAT_TOKEN)
     # 校验参数
     # 校验流程：
     # 将token、timestamp、nonce三个参数进行字典序排序
@@ -55,7 +55,7 @@ def initializeWeChat(request):
     tmp_str = "".join(li)
 
     # 进行sha1加密, 得到正确的签名值
-    sign = hashlib.sha1(tmp_str).hexdigest()
+    sign = hashlib.sha1(tmp_str.encode('utf-8')).hexdigest()
 
     # 将自己计算的签名值, 与请求的签名参数进行对比, 如果相同, 则证明请求来自微信
     if signature != sign:
@@ -70,28 +70,29 @@ def initializeWeChat(request):
             # 表示第一次接入微信服务器的验证
             echostr = request.GET.get("echostr", default="")
             # 校验echostr
-            if not echostr:
-                pass
-            print(echostr)
-            return echostr
+            return HttpResponse(echostr)
 
         elif request.method == "POST":
             # 表示微信服务器转发消息过来
             # 拿去xml的请求数据
-            xml_str = request.data
-
-            # 当xml_str为空时
-            if not xml_str:
-                pass
-            print(xml_str)
+            try:
+                postBody = str(request.body, encoding="utf-8")
+            except Exception as err:
+                return_response["Message"] = "数据格式不是标准 Json {}".format(err)
+                return JsonResponse(return_response)
 
             # 对xml字符串进行解析成字典
-            xml_dict = xmltodict.parse(xml_str)
+            xml_dict = xmltodict.parse(postBody)
 
             xml_dict = xml_dict.get("xml")
 
             # MsgType是消息类型 这里是提取消息类型
             msg_type = xml_dict.get("MsgType")
+
+            completion = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": xml_dict.get("Content")}]
+            )
 
             if msg_type == "text":
                 # 表示发送文本消息
@@ -110,7 +111,7 @@ def initializeWeChat(request):
                         "FromUserName": xml_dict.get("ToUserName"),
                         "CreateTime": int(time.time()),
                         "MsgType": "text",
-                        "Content": xml_dict.get("Content")
+                        "Content": completion
                     }
                 }
             else:
@@ -120,7 +121,7 @@ def initializeWeChat(request):
                         "FromUserName": xml_dict.get("ToUserName"),
                         "CreateTime": int(time.time()),
                         "MsgType": "text",
-                        "Content": "I LOVE YOU"
+                        "Content": "无法失败"
                     }
                 }
             # 将字典转换为xml字符串

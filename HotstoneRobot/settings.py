@@ -132,3 +132,5 @@ WECHAT_APPID = os.environ.get('WECHAT_APPID')
 WECHAT_APPSECRET = os.environ.get('WECHAT_APPSECRET')
 # 加解密对
 WECHAT_EncodingAESKey = os.environ.get('WECHAT_EncodingAESKey')
+
+OPENAI_KEY = os.environ.get('OPENAI_KEY')
