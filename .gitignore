@@ -1,0 +1,16 @@
+*.tar.gz
+*.tgz
+*.idea
+*.retry
+*.DS_Store
+*.swp
+*.runc
+geckodriver.log
+output/
+*.sqlite3
+tags
+nginx
+__pycache__
+# 关键字段误删
+Mj6cHfuxGsKHtgva2NoriQF0
+*.xlsx
