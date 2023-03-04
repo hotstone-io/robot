@@ -96,8 +96,8 @@ def initializeWeChat(request):
             # 如果不存在需创建
             if not _check_db_open_id.exists():
                 _insert_data = {
-                    "context": '[{"role": "system", "content": {0}}]'.format(ChatGPT_Role),
-                    "openid": xml_dict["ozdU6wkXf4bzNiTpD3MeBc7kRUl8"],
+                    "context": json.dumps([{"role": "system", "content": ChatGPT_Role}]),
+                    "openid": xml_dict["FromUserName"],
                 }
                 _check_db_insert_open_id = ResourceModels.UserCache.objects.create(**_insert_data)
                 time.sleep(1)
