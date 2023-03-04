@@ -85,7 +85,7 @@ def initializeWeChat(request):
             msg_type = xml_dict.get("MsgType")
 
             # 获取数据库中是否有过此用户的交互记录
-            _check_db_open_id = ResourceModels.UserCache.objects.fileter(openid=xml_dict["FromUserName"])
+            _check_db_open_id = ResourceModels.UserCache.objects.filter(openid=xml_dict["FromUserName"])
 
             # 设置 ChatGPT 角色
             if xml_dict.get("Content") == "%翻译%":
