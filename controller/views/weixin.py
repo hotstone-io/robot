@@ -72,6 +72,7 @@ def initializeWeChat(request):
             # 拿去xml的请求数据
             try:
                 postBody = str(request.body, encoding="utf-8")
+                print(postBody)
             except Exception as err:
                 return_response["Message"] = "数据格式不是标准 Json {}".format(err)
                 return JsonResponse(return_response)
