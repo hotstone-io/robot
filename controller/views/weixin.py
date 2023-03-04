@@ -72,7 +72,6 @@ def initializeWeChat(request):
             # 拿去xml的请求数据
             try:
                 postBody = str(request.body, encoding="utf-8")
-                print(postBody)
             except Exception as err:
                 return_response["Message"] = "数据格式不是标准 Json {}".format(err)
                 return JsonResponse(return_response)
@@ -147,7 +146,7 @@ def initializeWeChat(request):
                 _check_db_insert_open_id.context = json.dumps(messages)
                 _check_db_insert_open_id.timestamp = timezone.now()
                 _check_db_insert_open_id.save()
-
+            print(completion)
             if msg_type == "text":
                 # 表示发送文本消息
                 # 第一次要么回复你想回复的内容, 不知道回复什么, 微信说了要么回复success, 要么空字符串
