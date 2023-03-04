@@ -1,20 +1,15 @@
 import hashlib
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.core import serializers
-from django.db.models import F
-from django.urls import reverse
-from django.core.exceptions import ObjectDoesNotExist
+from resources import models as ResourceModels
 from HotstoneRobot import settings
-import re
-import datetime
-import json
-import requests
-import uuid
+from django.utils import timezone
 import time
 import xmltodict
 import openai
-
+import datetime
+import pytz
+import json
 openai.api_key = settings.OPENAI_KEY
 
 # EIP
@@ -89,10 +84,68 @@ def initializeWeChat(request):
             # MsgType是消息类型 这里是提取消息类型
             msg_type = xml_dict.get("MsgType")
 
-            completion = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": xml_dict.get("Content")}]
-            )
+            # 获取数据库中是否有过此用户的交互记录
+            _check_db_open_id = ResourceModels.UserCache.objects.fileter(openid=xml_dict["FromUserName"])
+
+            # 设置 ChatGPT 角色
+            if xml_dict["Content"] == "%翻译%":
+                ChatGPT_Role = "你是一个翻译"
+            else:
+                ChatGPT_Role = ""
+
+            # 如果不存在需创建
+            if not _check_db_open_id.exists():
+                _insert_data = {
+                    "context": '[{"role": "system", "content": {0}}]'.format(ChatGPT_Role),
+                    "openid": xml_dict["ozdU6wkXf4bzNiTpD3MeBc7kRUl8"],
+                }
+                _check_db_insert_open_id = ResourceModels.UserCache.objects.create(**_insert_data)
+                time.sleep(1)
+            else:
+                _check_db_insert_open_id = ResourceModels.UserCache.objects.get(openid=xml_dict["FromUserName"])
+                if xml_dict["Content"] == "@clean history" or xml_dict["Content"] == "@清空历史":
+                    ResourceModels.UserCache.objects.filter(openid=xml_dict["FromUserName"]).delete()
+
+                    resp_dict = {
+                        "xml": {
+                            "ToUserName": xml_dict.get("FromUserName"),
+                            "FromUserName": xml_dict.get("ToUserName"),
+                            "CreateTime": int(time.time()),
+                            "MsgType": "text",
+                            "Content": "已清空历史!"
+                        }
+                    }
+                    # 将字典转换为xml字符串
+                    resp_xml_str = xmltodict.unparse(resp_dict)
+                    # 返回消息数据给微信服务器
+                    return HttpResponse(resp_xml_str)
+
+            # 判断会话时间, 默认超过 10 分钟则开启新会话
+            if (xml_dict["Content"] != "@current session" or xml_dict["Content"] != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp) >= 600:
+                messages = [{"role": "system", "content": ChatGPT_Role}]
+                messages.append({"role": "user", "content": xml_dict.get("Content")})
+                completion = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages
+                )
+                # 当正常发送时修改数据库
+                messages.append(
+                    {"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
+                _check_db_insert_open_id.context = json.dumps(messages)
+                _check_db_insert_open_id.timestamp = timezone.now()
+                _check_db_insert_open_id.save()
+            else:
+                messages = json.loads(_check_db_insert_open_id.context)
+                messages.append({"role": "user", "content": xml_dict.get("Content")})
+                completion = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages
+                )
+                # 当正常发送时修改数据库
+                messages.append({"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
+                _check_db_insert_open_id.context = json.dumps(messages)
+                _check_db_insert_open_id.timestamp = timezone.now()
+                _check_db_insert_open_id.save()
 
             if msg_type == "text":
                 # 表示发送文本消息
@@ -126,7 +179,6 @@ def initializeWeChat(request):
                 }
             # 将字典转换为xml字符串
             resp_xml_str = xmltodict.unparse(resp_dict)
-            print(resp_xml_str)
             # 返回消息数据给微信服务器
             return HttpResponse(resp_xml_str)
 
