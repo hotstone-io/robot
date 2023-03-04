@@ -88,7 +88,7 @@ def initializeWeChat(request):
             _check_db_open_id = ResourceModels.UserCache.objects.fileter(openid=xml_dict["FromUserName"])
 
             # 设置 ChatGPT 角色
-            if xml_dict["Content"] == "%翻译%":
+            if xml_dict.get("Content") == "%翻译%":
                 ChatGPT_Role = "你是一个翻译"
             else:
                 ChatGPT_Role = ""
@@ -97,14 +97,14 @@ def initializeWeChat(request):
             if not _check_db_open_id.exists():
                 _insert_data = {
                     "context": json.dumps([{"role": "system", "content": ChatGPT_Role}]),
-                    "openid": xml_dict["FromUserName"],
+                    "openid": xml_dict.get("FromUserName"),
                 }
                 _check_db_insert_open_id = ResourceModels.UserCache.objects.create(**_insert_data)
                 time.sleep(1)
             else:
-                _check_db_insert_open_id = ResourceModels.UserCache.objects.get(openid=xml_dict["FromUserName"])
-                if xml_dict["Content"] == "@clean history" or xml_dict["Content"] == "@清空历史":
-                    ResourceModels.UserCache.objects.filter(openid=xml_dict["FromUserName"]).delete()
+                _check_db_insert_open_id = ResourceModels.UserCache.objects.get(openid=xml_dict.get("FromUserName"))
+                if xml_dict.get("Content") == "@clean history" or xml_dict.get("Content") == "@清空历史":
+                    ResourceModels.UserCache.objects.filter(openid=xml_dict.get("FromUserName")).delete()
 
                     resp_dict = {
                         "xml": {
@@ -121,7 +121,7 @@ def initializeWeChat(request):
                     return HttpResponse(resp_xml_str)
 
             # 判断会话时间, 默认超过 10 分钟则开启新会话
-            if (xml_dict["Content"] != "@current session" or xml_dict["Content"] != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp) >= 600:
+            if (xml_dict.get("Content") != "@current session" or xml_dict.get("Content") != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp) >= 600:
                 messages = [{"role": "system", "content": ChatGPT_Role}]
                 messages.append({"role": "user", "content": xml_dict.get("Content")})
                 completion = openai.ChatCompletion.create(
