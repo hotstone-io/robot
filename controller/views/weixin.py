@@ -121,7 +121,7 @@ def initializeWeChat(request):
                     return HttpResponse(resp_xml_str)
 
             # 判断会话时间, 默认超过 10 分钟则开启新会话
-            if (xml_dict.get("Content") != "@current session" or xml_dict.get("Content") != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp) >= 600:
+            if (xml_dict.get("Content") != "@current session" or xml_dict.get("Content") != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp).seconds >= 600:
                 messages = [{"role": "system", "content": ChatGPT_Role}]
                 messages.append({"role": "user", "content": xml_dict.get("Content")})
                 completion = openai.ChatCompletion.create(
