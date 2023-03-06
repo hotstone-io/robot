@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from resources import models as ResourceModels
 from HotstoneRobot import settings
 from django.utils import timezone
+from openai.error import InvalidRequestError
 import time
 import xmltodict
 import openai
@@ -145,30 +146,62 @@ def initializeWeChat(request):
             if (xml_dict.get("Content") != "@current session" or xml_dict.get("Content") != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp).seconds >= 600:
                 messages = [{"role": "system", "content": ChatGPT_Role}]
                 messages.append({"role": "user", "content": xml_dict.get("Content").strip()})
-                completion = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages
-                )
-                # 当正常发送时修改数据库
-                messages.append(
-                    {"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
-                _check_db_insert_open_id.context = json.dumps(messages)
-                _check_db_insert_open_id.timestamp = timezone.now()
-                _check_db_insert_open_id.message = xml_dict.get("Content").strip()
-                _check_db_insert_open_id.save()
+                try:
+                    completion = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=messages
+                    )
+                    # 当正常发送时修改数据库
+                    messages.append(
+                        {"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
+                    _check_db_insert_open_id.context = json.dumps(messages)
+                    _check_db_insert_open_id.timestamp = timezone.now()
+                    _check_db_insert_open_id.message = xml_dict.get("Content").strip()
+                    _check_db_insert_open_id.save()
+                except InvalidRequestError:
+                    resp_dict = {
+                        "xml": {
+                            "ToUserName": xml_dict.get("FromUserName"),
+                            "FromUserName": xml_dict.get("ToUserName"),
+                            "CreateTime": int(time.time()),
+                            "MsgType": "text",
+                            "Content": "因达到 ChatGPT 4096 限制, 已经重置会话, 请重新发起对话内容!"
+                        }
+                    }
+                    # 将字典转换为xml字符串
+                    resp_xml_str = xmltodict.unparse(resp_dict)
+                    # 返回消息数据给微信服务器
+                    return HttpResponse(resp_xml_str)
+
             else:
                 messages = json.loads(_check_db_insert_open_id.context)
                 messages.append({"role": "user", "content": xml_dict.get("Content").strip()})
-                completion = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages
-                )
-                # 当正常发送时修改数据库
-                messages.append({"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
-                _check_db_insert_open_id.context = json.dumps(messages)
-                _check_db_insert_open_id.timestamp = timezone.now()
-                _check_db_insert_open_id.message = xml_dict.get("Content").strip()
-                _check_db_insert_open_id.save()
+                try:
+                    completion = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=messages
+                    )
+                    # 当正常发送时修改数据库
+                    messages.append(
+                        {"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
+                    _check_db_insert_open_id.context = json.dumps(messages)
+                    _check_db_insert_open_id.timestamp = timezone.now()
+                    _check_db_insert_open_id.message = xml_dict.get("Content").strip()
+                    _check_db_insert_open_id.save()
+                except InvalidRequestError:
+                    resp_dict = {
+                        "xml": {
+                            "ToUserName": xml_dict.get("FromUserName"),
+                            "FromUserName": xml_dict.get("ToUserName"),
+                            "CreateTime": int(time.time()),
+                            "MsgType": "text",
+                            "Content": "因达到 ChatGPT 4096 限制, 已经重置会话, 请重新发起对话内容!"
+                        }
+                    }
+                    # 将字典转换为xml字符串
+                    resp_xml_str = xmltodict.unparse(resp_dict)
+                    # 返回消息数据给微信服务器
+                    return HttpResponse(resp_xml_str)
             print(completion)
             if msg_type == "text":
                 # 表示发送文本消息
