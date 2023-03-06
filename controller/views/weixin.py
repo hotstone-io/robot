@@ -88,8 +88,9 @@ def initializeWeChat(request):
             _check_db_open_id = ResourceModels.UserCache.objects.filter(openid=xml_dict["FromUserName"])
 
             # 设置 ChatGPT 角色
-            if xml_dict.get("Content") == "%翻译%":
-                ChatGPT_Role = "你是一个翻译"
+            isRole = xml_dict.get("Content").strip().split("%")
+            if len(xml_dict.get("Content").strip().split("%")) == 3:
+                ChatGPT_Role = isRole[1]
             else:
                 ChatGPT_Role = ""
 
@@ -120,10 +121,30 @@ def initializeWeChat(request):
                     # 返回消息数据给微信服务器
                     return HttpResponse(resp_xml_str)
 
+            # 避免重复的消息（可能存在微信超时后发送重复消息, 避免 Token 过大）
+            if _check_db_insert_open_id.message == xml_dict.get("Content").strip():
+                message = json.loads(_check_db_insert_open_id.context)
+
+                if message[len(message) - 2]["role"] == "user" and message[len(message) - 2]["content"] == xml_dict.get("Content").strip():
+
+                    resp_dict = {
+                        "xml": {
+                            "ToUserName": xml_dict.get("FromUserName"),
+                            "FromUserName": xml_dict.get("ToUserName"),
+                            "CreateTime": int(time.time()),
+                            "MsgType": "text",
+                            "Content": message[len(message) - 1]["content"]
+                        }
+                    }
+                    # 将字典转换为xml字符串
+                    resp_xml_str = xmltodict.unparse(resp_dict)
+                    # 返回消息数据给微信服务器
+                    return HttpResponse(resp_xml_str)
+
             # 判断会话时间, 默认超过 10 分钟则开启新会话
             if (xml_dict.get("Content") != "@current session" or xml_dict.get("Content") != "@继续会话") and (datetime.datetime.now(pytz.timezone(settings.TIME_ZONE)) - _check_db_insert_open_id.timestamp).seconds >= 600:
                 messages = [{"role": "system", "content": ChatGPT_Role}]
-                messages.append({"role": "user", "content": xml_dict.get("Content")})
+                messages.append({"role": "user", "content": xml_dict.get("Content").strip()})
                 completion = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     messages=messages
@@ -133,10 +154,11 @@ def initializeWeChat(request):
                     {"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
                 _check_db_insert_open_id.context = json.dumps(messages)
                 _check_db_insert_open_id.timestamp = timezone.now()
+                _check_db_insert_open_id.message = xml_dict.get("Content").strip()
                 _check_db_insert_open_id.save()
             else:
                 messages = json.loads(_check_db_insert_open_id.context)
-                messages.append({"role": "user", "content": xml_dict.get("Content")})
+                messages.append({"role": "user", "content": xml_dict.get("Content").strip()})
                 completion = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     messages=messages
@@ -145,6 +167,7 @@ def initializeWeChat(request):
                 messages.append({"role": "assistant", "content": completion["choices"][0]["message"]["content"].strip()})
                 _check_db_insert_open_id.context = json.dumps(messages)
                 _check_db_insert_open_id.timestamp = timezone.now()
+                _check_db_insert_open_id.message = xml_dict.get("Content").strip()
                 _check_db_insert_open_id.save()
             print(completion)
             if msg_type == "text":
