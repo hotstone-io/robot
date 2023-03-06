@@ -159,6 +159,7 @@ def initializeWeChat(request):
                     _check_db_insert_open_id.message = xml_dict.get("Content").strip()
                     _check_db_insert_open_id.save()
                 except InvalidRequestError:
+                    ResourceModels.UserCache.objects.filter(openid=xml_dict["FromUserName"]).delete()
                     resp_dict = {
                         "xml": {
                             "ToUserName": xml_dict.get("FromUserName"),
@@ -189,6 +190,7 @@ def initializeWeChat(request):
                     _check_db_insert_open_id.message = xml_dict.get("Content").strip()
                     _check_db_insert_open_id.save()
                 except InvalidRequestError:
+                    ResourceModels.UserCache.objects.filter(openid=xml_dict["FromUserName"]).delete()
                     resp_dict = {
                         "xml": {
                             "ToUserName": xml_dict.get("FromUserName"),
